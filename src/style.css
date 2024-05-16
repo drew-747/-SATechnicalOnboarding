@@ -15,16 +15,22 @@ FPS: Final[int] = 25
 class CellState:
     connected: bool = False
 
+@dataclass
+class DifficultySettings:
+    rows: int
+    columns: int
+    time_limit: int
+
 class PipeGame(pg.PyxelGrid[CellState]):
-    def __init__(self, settings: pl.DifficultySettings, seed: int) -> None:
-        self.settings: pl.DifficultySettings = settings
+    def __init__(self, settings: DifficultySettings, seed: int) -> None:
+        self.settings: DifficultySettings = settings
         self.seed: int = seed
         self.rand: Random = Random(seed)
-        self.grid: List[List[CellState]] = [[CellState() for _ in range(settings.c)] for _ in range(settings.r)]
+        self.grid: List[List[CellState]] = [[CellState() for _ in range(settings.columns)] for _ in range(settings.rows)]
         self.selected_cell: Tuple[int, int] = None
         self.game_started: bool = False
         self.timer: float = settings.time_limit
-        super().__init__(settings.r, settings.c, dim=pl.DIM)
+        super().__init__(settings.rows, settings.columns, dim=pl.DIM)
 
     def init(self) -> None:
         pyxel.mouse(True)
@@ -69,17 +75,17 @@ class PipeGame(pg.PyxelGrid[CellState]):
         pyxel.text(5, 15, "Press 'n' for new game", pyxel.COLOR_WHITE)
 
         # Draw the grid lines
-        for i in range(self.settings.r + 1):
-            pyxel.line(0, i * pl.DIM, self.settings.c * pl.DIM, i * pl.DIM, pyxel.COLOR_WHITE)
-        for j in range(self.settings.c + 1):
-            pyxel.line(j * pl.DIM, 0, j * pl.DIM, self.settings.r * pl.DIM, pyxel.COLOR_WHITE)
+        for i in range(self.settings.rows + 1):
+            pyxel.line(0, i * pl.DIM, self.settings.columns * pl.DIM, i * pl.DIM, pyxel.COLOR_WHITE)
+        for j in range(self.settings.columns + 1):
+            pyxel.line(j * pl.DIM, 0, j * pl.DIM, self.settings.rows * pl.DIM, pyxel.COLOR_WHITE)
 
     def post_draw_grid(self) -> None:
         pass
 
     def connect_pipes(self) -> None:
-        for i in range(self.settings.r):
-            for j in range(self.settings.c):
+        for i in range(self.settings.rows):
+            for j in range(self.settings.columns):
                 if self.rand.random() < 0.5:
                     self.grid[i][j].connected = True
 
@@ -90,8 +96,8 @@ class PipeGame(pg.PyxelGrid[CellState]):
         self.game_started = True
 
     def check_connected_pipes(self) -> None:
-        for i in range(self.settings.r):
-            for j in range(self.settings.c):
+        for i in range(self.settings.rows):
+            for j in range(self.settings.columns):
                 if self.grid[i][j].connected:
                     neighbors = self.get_neighbors((i, j))
                     if any(self.grid[x][y].connected for x, y in neighbors):
@@ -104,7 +110,8 @@ class PipeGame(pg.PyxelGrid[CellState]):
                 if i != 0 or j != 0:
                     x = cell[0] + i
                     y = cell[1] + j
-                    if 0 <= x < self.settings.r and 0 <= y < self.settings.c:
+                    if 0 <= x < self.settings.rows and 0 <= y < self.settings.columns:
+                       
                         neighbors.append((x, y))
         return neighbors
 
@@ -115,7 +122,7 @@ class PipeGame(pg.PyxelGrid[CellState]):
     def new_game(self) -> None:
         self.seed = getrandbits(31)
         self.rand = Random(self.seed)
-        self.grid = [[CellState() for _ in range(self.settings.c)] for _ in range(self.settings.r)]
+        self.grid = [[CellState() for _ in range(self.settings.columns)] for _ in range(self.settings.rows)]
         self.selected_cell = None
         self.game_started = False
         self.timer = self.settings.time_limit
@@ -138,7 +145,9 @@ def main() -> None:
     if args.difficulty not in pl.DIFFICULTY_SETTINGS:
         raise ValueError(f"Unknown difficulty: {args.difficulty}")
 
-    PipeGame(settings=pl.DIFFICULTY_SETTINGS[args.difficulty], seed=seed).run(title=TITLE, fps=FPS)
+    difficulty_settings = pl.DIFFICULTY_SETTINGS[args.difficulty]
+    settings = DifficultySettings(difficulty_settings.rows, difficulty_settings.columns, difficulty_settings.time_limit)
+    PipeGame(settings=settings, seed=seed).run(title=TITLE, fps=FPS)
 
 if __name__ == '__main__':
     main()
