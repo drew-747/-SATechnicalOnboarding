@@ -1,7 +1,7 @@
 from argparse import ArgumentParser
 from dataclasses import dataclass
 from random import Random, getrandbits
-from typing import Final, List
+from typing import Final, List, Tuple, Optional
 
 import pyxel
 
@@ -21,9 +21,9 @@ class CellState:
 
 class PipeGame(pg.PyxelGrid[CellState]):
     def __init__(self, settings: pl.DifficultySettings, seed: int) -> None:
-        self.settings = settings
-        self.seed = seed
-        self.rand = Random(seed)
+        self.settings: pl.DifficultySettings = settings
+        self.seed: int = seed
+        self.rand: Random = Random(seed)
         self.grid: List[List[CellState]] = [[CellState() for _ in range(settings.c)] for _ in range(settings.r)]
         super().__init__(settings.r, settings.c, dim=pl.DIM)
 
@@ -34,18 +34,20 @@ class PipeGame(pg.PyxelGrid[CellState]):
         self.start_pipe()
 
     def start_pipe(self) -> None:
-        start_row = self.rand.randint(0, self.settings.r - 1)
+        start_row: int = self.rand.randint(0, self.settings.r - 1)
         self.grid[start_row][0].pipe = pl.Pipe.RIGHT
         self.grid[start_row][0].filled = True
 
     def update(self) -> None:
         print("The mouse is at cell", self.mouse_cell())
         if pyxel.btnp(pyxel.MOUSE_LEFT_BUTTON):
+            i: int
+            j: int
             i, j = self.mouse_cell()
             self.grid[i][j].pipe = pl.Pipe.RIGHT
 
     def draw_cell(self, i: int, j: int, x: int, y: int) -> None:
-        cell = self.grid[i][j]
+        cell: CellState = self.grid[i][j]
         pyxel.blt(x, y, 0, cell.pipe.value * pl.DIM, 0, pl.DIM, pl.DIM, 0)
 
     def pre_draw_grid(self) -> None:
@@ -56,16 +58,16 @@ class PipeGame(pg.PyxelGrid[CellState]):
 
 
 def main() -> None:
-    parser = ArgumentParser(description=f"Run the '{TITLE}' game.")
+    parser: ArgumentParser = ArgumentParser(description=f"Run the '{TITLE}' game.")
 
     parser.add_argument('-d', '--difficulty', default='easy',
         help=f"the game difficulty. must be one of: {', '.join(pl.DIFFICULTY_SETTINGS.keys())} (default: %(default)s)")
     parser.add_argument('-s', '--seed', type=int, default=None,
         help="the seed for the random number generator. (default: based on system time)")
 
-    args = parser.parse_args()
+    args: Namespace = parser.parse_args()
 
-    seed = args.seed if args.seed is not None else getrandbits(31)
+    seed: int = args.seed if args.seed is not None else getrandbits(31)
 
     if args.difficulty not in pl.DIFFICULTY_SETTINGS:
         raise ValueError(f"Unknown difficulty: {args.difficulty}")
