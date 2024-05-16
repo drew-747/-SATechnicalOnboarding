@@ -21,6 +21,9 @@ class PipeGame(pg.PyxelGrid[CellState]):
         self.seed = seed
         self.rand = Random(seed)
         self.grid = [[CellState() for _ in range(settings.c)] for _ in range(settings.r)]
+        self.selected_cell = None
+        self.game_started = False
+        self.timer = settings.time_limit
         super().__init__(settings.r, settings.c, dim=pl.DIM)
 
     def init(self) -> None:
@@ -28,25 +31,74 @@ class PipeGame(pg.PyxelGrid[CellState]):
         pyxel.load(pl.PIPE_RESOURCE_PATH)
         pyxel.rseed(self.seed)
         self.connect_pipes()
+        self.start_timer()
 
     def update(self) -> None:
-        print("The mouse is at cell", self.mouse_cell())
+        if self.game_started:
+            self.timer -= 1 / FPS
+            if self.timer <= 0:
+                self.timer = 0
+                self.game_over()
+        if pyxel.btnp(pyxel.KEY_N):
+            self.new_game()
+        if pyxel.btnp(pyxel.MOUSE_LEFT_BUTTON):
+            mouse_x, mouse_y = pyxel.mouse_x, pyxel.mouse_y
+            cell = self.pixel_to_cell(mouse_x, mouse_y)
+            if cell:
+                if self.selected_cell:
+                    if self.selected_cell != cell:
+                        if self.are_adjacent(self.selected_cell, cell):
+                            self.grid[self.selected_cell[0]][self.selected_cell[1]].connected = True
+                            self.grid[cell[0]][cell[1]].connected = True
+                            self.check_connected_pipes()
+                else:
+                    self.selected_cell = cell
+            else:
+                self.selected_cell = None
 
     def draw_cell(self, i: int, j: int, x: int, y: int) -> None:
         if self.grid[i][j].connected:
             pyxel.blt(x, y, 0, 16, 0, 16, 16)
+        if self.selected_cell == (i, j):
+            pyxel.rectb(x, y, x + pl.DIM, y + pl.DIM, pyxel.COLOR_GREEN)
 
     def pre_draw_grid(self) -> None:
         pyxel.cls(0)
+        pyxel.text(5, 5, f"Time: {int(self.timer)}", pyxel.COLOR_WHITE)
+        pyxel.text(5, 
+
+
+    def pre_draw_grid(self) -> None:
+        pyxel.cls(0)
+        pyxel.text(5, 5, f"Time: {int(self.timer)}", pyxel.COLOR_WHITE)
+        pyxel.text(5, 15, "Press 'n' for new game", pyxel.COLOR_WHITE)
+
+        # Draw the grid lines
+        for i in range(self.settings.r + 1):
+            pyxel.line(0, i * pl.DIM, self.settings.c * pl.DIM, i * pl.DIM, pyxel.COLOR_WHITE)
+        for j in range(self.settings.c + 1):
+            pyxel.line(j * pl.DIM, 0, j * pl.DIM, self.settings.r * pl.DIM, pyxel.COLOR_WHITE)
 
     def post_draw_grid(self) -> None:
         pass
 
-    def connect_pipes(self) -> None:
-        for i in range(self.settings.r):
-            for j in range(self.settings.c):
-                if self.rand.random() < 0.5:
-                    self.grid[i][j].connected = True
+
+    def post_draw_grid(self) -> None:
+        pass
+
+    def game_over(self):
+        self.game_started = False
+        pyxel.text(100, 100, "Game Over!", pyxel.COLOR_RED)
+
+    def new_game(self):
+        self.seed = getrandbits(31)
+        self.rand = Random(self.seed)
+        self.grid = [[CellState() for _ in range(self.settings.c)] for _ in range(self.settings.r)]
+        self.selected_cell = None
+        self.game_started = False
+        self.timer = self.settings.time_limit
+        self.connect_pipes()
+        self.start_timer()
 
 def main():
     parser = ArgumentParser(description=f"Run the '{TITLE}' game.")
@@ -68,3 +120,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
