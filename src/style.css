@@ -1,7 +1,7 @@
 from argparse import ArgumentParser
 from dataclasses import dataclass
 from random import Random, getrandbits
-from typing import Final
+from typing import Final, List, Tuple
 
 import pyxel
 
@@ -17,13 +17,13 @@ class CellState:
 
 class PipeGame(pg.PyxelGrid[CellState]):
     def __init__(self, settings: pl.DifficultySettings, seed: int) -> None:
-        self.settings = settings
-        self.seed = seed
-        self.rand = Random(seed)
-        self.grid = [[CellState() for _ in range(settings.c)] for _ in range(settings.r)]
-        self.selected_cell = None
-        self.game_started = False
-        self.timer = settings.time_limit
+        self.settings: pl.DifficultySettings = settings
+        self.seed: int = seed
+        self.rand: Random = Random(seed)
+        self.grid: List[List[CellState]] = [[CellState() for _ in range(settings.c)] for _ in range(settings.r)]
+        self.selected_cell: Tuple[int, int] = None
+        self.game_started: bool = False
+        self.timer: float = settings.time_limit
         super().__init__(settings.r, settings.c, dim=pl.DIM)
 
     def init(self) -> None:
@@ -42,8 +42,9 @@ class PipeGame(pg.PyxelGrid[CellState]):
         if pyxel.btnp(pyxel.KEY_N):
             self.new_game()
         if pyxel.btnp(pyxel.MOUSE_LEFT_BUTTON):
-            mouse_x, mouse_y = pyxel.mouse_x, pyxel.mouse_y
-            cell = self.pixel_to_cell(mouse_x, mouse_y)
+            mouse_x: int = pyxel.mouse_x
+            mouse_y: int = pyxel.mouse_y
+            cell: Tuple[int, int] = self.pixel_to_cell(mouse_x, mouse_y)
             if cell:
                 if self.selected_cell:
                     if self.selected_cell != cell:
@@ -65,12 +66,6 @@ class PipeGame(pg.PyxelGrid[CellState]):
     def pre_draw_grid(self) -> None:
         pyxel.cls(0)
         pyxel.text(5, 5, f"Time: {int(self.timer)}", pyxel.COLOR_WHITE)
-        pyxel.text(5, 
-
-
-    def pre_draw_grid(self) -> None:
-        pyxel.cls(0)
-        pyxel.text(5, 5, f"Time: {int(self.timer)}", pyxel.COLOR_WHITE)
         pyxel.text(5, 15, "Press 'n' for new game", pyxel.COLOR_WHITE)
 
         # Draw the grid lines
@@ -82,15 +77,42 @@ class PipeGame(pg.PyxelGrid[CellState]):
     def post_draw_grid(self) -> None:
         pass
 
+    def connect_pipes(self) -> None:
+        for i in range(self.settings.r):
+            for j in range(self.settings.c):
+                if self.rand.random() < 0.5:
+                    self.grid[i][j].connected = True
 
-    def post_draw_grid(self) -> None:
-        pass
+    def are_adjacent(self, cell1: Tuple[int, int], cell2: Tuple[int, int]) -> bool:
+        return abs(cell1[0] - cell2[0]) + abs(cell1[1] - cell2[1]) == 1
 
-    def game_over(self):
+    def start_timer(self) -> None:
+        self.game_started = True
+
+    def check_connected_pipes(self) -> None:
+        for i in range(self.settings.r):
+            for j in range(self.settings.c):
+                if self.grid[i][j].connected:
+                    neighbors = self.get_neighbors((i, j))
+                    if any(self.grid[x][y].connected for x, y in neighbors):
+                        self.grid[i][j].connected = True
+
+    def get_neighbors(self, cell: Tuple[int, int]) -> List[Tuple[int, int]]:
+        neighbors = []
+        for i in range(-1, 2):
+            for j in range(-1, 2):
+                if i != 0 or j != 0:
+                    x = cell[0] + i
+                    y = cell[1] + j
+                    if 0 <= x < self.settings.r and 0 <= y < self.settings.c:
+                        neighbors.append((x, y))
+        return neighbors
+
+    def game_over(self) -> None:
         self.game_started = False
         pyxel.text(100, 100, "Game Over!", pyxel.COLOR_RED)
 
-    def new_game(self):
+    def new_game(self) -> None:
         self.seed = getrandbits(31)
         self.rand = Random(self.seed)
         self.grid = [[CellState() for _ in range(self.settings.c)] for _ in range(self.settings.r)]
@@ -100,7 +122,7 @@ class PipeGame(pg.PyxelGrid[CellState]):
         self.connect_pipes()
         self.start_timer()
 
-def main():
+def main() -> None:
     parser = ArgumentParser(description=f"Run the '{TITLE}' game.")
 
     parser.add_argument('-d', '--difficulty', default='easy',
@@ -120,4 +142,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
