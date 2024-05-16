@@ -1,99 +1,78 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta http-equiv="X-UA-Compatible" content="IE=edge">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Resume</title>
+from argparse import ArgumentParser
+from dataclasses import dataclass
+from random import Random, getrandbits
+from typing import Final, List
 
-    <link rel="stylesheet" href="style.css">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
-</head>
-<body>
-    <main>
-        <article class="box">
-            <h1>Your Name</h1>
-            <div><a href="mailto:your.email@example.com">your-email@example.com</a></div>
-            
-            <section class="box">
-                <h2>
-                    <i class="fa fa-bullhorn" aria-hidden="true"></i>
-                    Social media
-                </h2>
-                <ul>
-                    <li><a href="https://github.com/<handle>">@github_handle</a></li>
-                    <li><a href="https://linkedin.com/in/<handle>">@linkedin_handle</a></li>
-                    <li><a href="https://twitter.com/<handle>">@twitter_handle</a></li>
-                </ul>    
-            </section>
-            
-            <section class="box">
-                <div class="education">
-                    <h2>
-                        <i class="fa fa-certificate" aria-hidden="true"></i>
-                        School name
-                    </h2>
-                    <h3>Major</h3>
-                    <ul>
-                        <li>GPA: 4.0</li>
-                        <li>Years</li>
-                    </ul>
-                </div>
-            </section>
+import pyxel
 
-            <section class="box">
-                <h2>
-                    <i class="fa fa-check" aria-hidden="true"></i>
-                    Skills
-                </h2>
-                <ul>
-                    <li>CSS</li>
-                    <li>HTML</li>
-                    <li>JavaScript</li>
-                    <li>Git</li>
-                    <li>Visual Studio Code</li>
-                </ul>
-            </section>
-        </article>
-        <article class="box">
-            <section class="box">
-                <h2>
-                    <i class="fa fa-briefcase" aria-hidden="true"></i>
-                    Experience
-                </h2>
-                <h3>Microsoft Learn Student Ambassador</h3>
-                <ul>
-                    <li>Some skill</li>
-                    <li>Another skill</li>
-                </ul>
-            </section>
-            <section class="box">
-                <h2>
-                    <i class="fa fa-building" aria-hidden="true"></i>
-                    Internships
-                </h2>
+import pyxelgrid as pg
+import pipelib as pl
 
-                <h3>Company name</h3>
-                <ul>
-                    <li>Accomplishment</li>
-                    <li>Another accomplishment</li>
-                </ul>
-            </section>
-            <section class="box">
-                <h2>
-                    <i class="fa fa-cubes" aria-hidden="true"></i>
-                    Projects
-                </h2>
-                
-                <h3>Great hackathon</h3>
-                <div>This was a great hack!</div>
-                <ul>
-                    <li>Cool technology used</li>
-                    <li>Prize won</li>
-                </ul>
-            </section>
-        </article>
-    
-    </main>
-</body>
-</html>
+
+TITLE: Final[str] = "Pipe Dream"
+FPS: Final[int] = 25
+
+
+@dataclass
+class CellState:
+    pipe: pl.Pipe = pl.Pipe.NONE
+    filled: bool = False
+
+
+class PipeGame(pg.PyxelGrid[CellState]):
+    def __init__(self, settings: pl.DifficultySettings, seed: int) -> None:
+        self.settings = settings
+        self.seed = seed
+        self.rand = Random(seed)
+        self.grid: List[List[CellState]] = [[CellState() for _ in range(settings.c)] for _ in range(settings.r)]
+        super().__init__(settings.r, settings.c, dim=pl.DIM)
+
+    def init(self) -> None:
+        pyxel.mouse(True)
+        pyxel.load(pl.PIPE_RESOURCE_PATH)
+        pyxel.rseed(self.seed)
+        self.start_pipe()
+
+    def start_pipe(self):
+        start_row = self.rand.randint(0, self.settings.r - 1)
+        self.grid[start_row][0].pipe = pl.Pipe.RIGHT
+        self.grid[start_row][0].filled = True
+
+    def update(self) -> None:
+        print("The mouse is at cell", self.mouse_cell())
+        if pyxel.btnp(pyxel.MOUSE_LEFT_BUTTON):
+            i, j = self.mouse_cell()
+            self.grid[i][j].pipe = pl.Pipe.RIGHT
+
+    def draw_cell(self, i: int, j: int, x: int, y: int) -> None:
+        cell = self.grid[i][j]
+        pyxel.blt(x, y, 0, cell.pipe.value * pl.DIM, 0, pl.DIM, pl.DIM, 0)
+
+    def pre_draw_grid(self) -> None:
+        pyxel.cls(0)
+
+    def post_draw_grid(self) -> None:
+        pass
+
+
+def main():
+    parser = ArgumentParser(description=f"Run the '{TITLE}' game.")
+
+    parser.add_argument('-d', '--difficulty', default='easy',
+        help=f"the game difficulty. must be one of: {', '.join(pl.DIFFICULTY_SETTINGS.keys())} (default: %(default)s)")
+    parser.add_argument('-s', '--seed', type=int, default=None,
+        help="the seed for the random number generator. (default: based on system time)")
+
+    args = parser.parse_args()
+
+    if (seed := args.seed) is None:
+        seed = getrandbits(31)
+
+    if args.difficulty not in pl.DIFFICULTY_SETTINGS:
+        raise ValueError(f"Unknown difficulty: {args.difficulty}")
+
+    PipeGame(settings=pl.DIFFICULTY_SETTINGS[args.difficulty], seed=seed).run(title=TITLE, fps=FPS)
+
+
+if __name__ == '__main__':
+    main()
