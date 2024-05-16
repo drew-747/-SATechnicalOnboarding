@@ -1,47 +1,70 @@
-body {
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    font-size: 18px;
-    margin: 1% 5%;
-    background-color:E6F7FF;
-}
+from argparse import ArgumentParser
+from dataclasses import dataclass
+from random import Random, getrandbits
+from typing import Final
 
-main {
-    display: grid;
-    grid-template-columns: 50% 50%;
-}
+import pyxel
 
+import pyxelgrid as pg
+import pipelib as pl
 
-.box {
-    box-shadow: .1em .1em .2em #80D4FF;
-    border-radius: .4em;
-    border-width: .01em;
-    border-style: solid;
-    margin-left: .4em;
-    padding: .0em .5em .1em .5em;
-    margin-bottom: .5em;
-    margin-top: .3em;
-}
+TITLE: Final[str] = "Pipe Dream"
+FPS: Final[int] = 25
 
-h1 {
-    color: navy;
-    margin: 0em;
-    display: block;
-}
+@dataclass
+class CellState:
+    connected: bool = False
 
-h2 {
-    color: navy;
-    font-size: 1.2em;
-    margin: 0em;
-}
+class PipeGame(pg.PyxelGrid[CellState]):
+    def __init__(self, settings: pl.DifficultySettings, seed: int) -> None:
+        self.settings = settings
+        self.seed = seed
+        self.rand = Random(seed)
+        self.grid = [[CellState() for _ in range(settings.c)] for _ in range(settings.r)]
+        super().__init__(settings.r, settings.c, dim=pl.DIM)
 
-h3 {
-    color: navy;
-    font-size: 1em;
-    margin: 0em;
-}
+    def init(self) -> None:
+        pyxel.mouse(True)
+        pyxel.load(pl.PIPE_RESOURCE_PATH)
+        pyxel.rseed(self.seed)
+        self.connect_pipes()
 
-ul {
-    margin: 0em 0em .3em 0em;
-    list-style-type: square;
-    padding-left: 1.4em;
-}
+    def update(self) -> None:
+        print("The mouse is at cell", self.mouse_cell())
+
+    def draw_cell(self, i: int, j: int, x: int, y: int) -> None:
+        if self.grid[i][j].connected:
+            pyxel.blt(x, y, 0, 16, 0, 16, 16)
+
+    def pre_draw_grid(self) -> None:
+        pyxel.cls(0)
+
+    def post_draw_grid(self) -> None:
+        pass
+
+    def connect_pipes(self) -> None:
+        for i in range(self.settings.r):
+            for j in range(self.settings.c):
+                if self.rand.random() < 0.5:
+                    self.grid[i][j].connected = True
+
+def main():
+    parser = ArgumentParser(description=f"Run the '{TITLE}' game.")
+
+    parser.add_argument('-d', '--difficulty', default='easy',
+        help=f"the game difficulty. must be one of: {', '.join(pl.DIFFICULTY_SETTINGS.keys())} (default: %(default)s)")
+    parser.add_argument('-s', '--seed', type=int, default=None,
+        help="the seed for the random number generator. (default: based on system time)")
+
+    args = parser.parse_args()
+
+    if (seed := args.seed) is None:
+        seed = getrandbits(31)
+
+    if args.difficulty not in pl.DIFFICULTY_SETTINGS:
+        raise ValueError(f"Unknown difficulty: {args.difficulty}")
+
+    PipeGame(settings=pl.DIFFICULTY_SETTINGS[args.difficulty], seed=seed).run(title=TITLE, fps=FPS)
+
+if __name__ == '__main__':
+    main()
